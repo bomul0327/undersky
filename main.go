@@ -1,9 +1,17 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"math/rand"
 	"strconv"
+	"time"
+
+	"github.com/hellodhlyn/undersky-colosseum/libs/s3"
+
+	"github.com/hellodhlyn/sqstask"
 
 	"github.com/hellodhlyn/undersky-colosseum/game"
 	"github.com/hellodhlyn/undersky-colosseum/gamer"
@@ -13,38 +21,44 @@ var games = map[string]game.Game{
 	"1000": &game.Game1000{},
 }
 
-func main() {
-	// 게임을 설정합니다.
-	exeID := flag.Int64("id", -1, "id of game execution")
-	gameNum := flag.String("game", "", "number of game")
+type gameOptionsGamer struct {
+	UUID       string `json:"uuid"`
+	Runtime    string `json:"runtime"`
+	SourceUUID string `json:"source_uuid"`
+}
 
-	flag.Parse()
+type gameOptions struct {
+	ExecutionID int64            `json:"execution_id"`
+	GameID      string           `json:"game_id"`
+	Player      gameOptionsGamer `json:"player"`
+	Competition gameOptionsGamer `json:"competition"`
+}
 
-	if *exeID == -1 {
-		panic("invalid execution id: " + strconv.FormatInt(*exeID, 10))
-	}
-
-	g, ok := games[*gameNum]
+func runGame(opts *gameOptions) {
+	g, ok := games[opts.GameID]
 	if !ok {
-		panic("no such game: " + *gameNum)
+		fmt.Printf("invalid game id: %s\n", opts.GameID)
+		return
 	}
 
 	// 게이머들의 프로세스를 실행합니다.
-	player := gamer.NewGamer("00000000-0000-0000-0000-000000000000")
 	fmt.Println("waiting for player...")
-	if err := player.StartConnection(50051, &gamer.Python3Driver{}); err != nil {
-		panic(err)
+	player, err := makeGamer(opts.GameID, opts.Player)
+	if err != nil {
+		fmt.Printf("failed to create player: %v\n", err)
+		return
 	}
 
-	competition := gamer.NewGamer("00000000-0000-0000-0000-000000000001")
 	fmt.Println("waiting for competition...")
-	if err := competition.StartConnection(50052, &gamer.Python3Driver{}); err != nil {
-		panic(err)
+	competition, err := makeGamer(opts.GameID, opts.Competition)
+	if err != nil {
+		fmt.Printf("failed to create competition: %v\n", err)
+		return
 	}
 
 	fmt.Println("initializing game...")
 	gameCtx := game.Context{
-		GameID:      *exeID,
+		GameID:      opts.ExecutionID,
 		Player:      player,
 		Competition: competition,
 	}
@@ -60,7 +74,8 @@ func main() {
 		fmt.Println("starting round...")
 		winner, err := g.PlayRound()
 		if err != nil {
-			panic(err)
+			fmt.Printf("error on playing round: %v\n", err)
+			return
 		}
 
 		if winner == player.UUID {
@@ -75,4 +90,60 @@ func main() {
 	}
 
 	fmt.Printf("[Result] Player %d : %d Competition\n", playerWins, competitionWins)
+}
+
+func makeGamer(gameID string, opts gameOptionsGamer) (*gamer.Gamer, error) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	port := 10000 + r.Int()%55535
+
+	g := gamer.NewGamer(opts.UUID)
+
+	var driver gamer.ServerDriver
+	switch opts.Runtime {
+	case "python3.6":
+		s3client, err := s3.NewClient("undersky-ai")
+		if err != nil {
+			return nil, err
+		}
+
+		err = s3client.Download("source/"+gameID+"/"+opts.SourceUUID, "source/"+strconv.Itoa(port)+".py")
+		if err != nil {
+			return nil, err
+		}
+
+		driver = gamer.NewPython3Driver("source." + strconv.Itoa(port))
+
+	default:
+		return nil, errors.New("no such runtime: " + opts.Runtime)
+	}
+
+	return g, g.StartConnection(port, driver)
+}
+
+func main() {
+	msg := flag.String("message", "", "sqs message for debug")
+	flag.Parse()
+	if *msg != "" {
+		var opts gameOptions
+		json.Unmarshal([]byte(*msg), &opts)
+		runGame(&opts)
+		return
+	}
+
+	task, _ := sqstask.NewSQSTask(&sqstask.Options{
+		QueueName:  "undersky-submission",
+		AWSRegion:  "ap-northeast-2",
+		WorkerSize: 1,
+		Consume: func(message string) error {
+			var opts gameOptions
+			json.Unmarshal([]byte(message), &opts)
+			runGame(&opts)
+			return nil
+		},
+		HandleError: func(err error) {
+			fmt.Println(err)
+		},
+	})
+
+	task.StartConsumer()
 }
