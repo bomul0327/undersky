@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package gamer;
+
+service Gamer {
+    rpc Ping(PingMessage) returns (PingMessage) {}
+    rpc Action(ActionInput) returns (ActionOutput) {}
+}
+
+message PingMessage {
+    string id = 1;
+}
+
+message ActionInput {
+    string id = 1;
+    repeated string data = 2;
+}
+
+message ActionOutput {
+    string id = 1;
+    repeated string data = 2;
+}
