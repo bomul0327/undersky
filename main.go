@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"strconv"
 
 	"github.com/hellodhlyn/undersky-colosseum/game"
 	"github.com/hellodhlyn/undersky-colosseum/gamer"
@@ -12,6 +14,21 @@ var games = map[string]game.Game{
 }
 
 func main() {
+	// 게임을 설정합니다.
+	exeID := flag.Int64("id", -1, "id of game execution")
+	gameNum := flag.String("game", "", "number of game")
+
+	flag.Parse()
+
+	if *exeID == -1 {
+		panic("invalid execution id: " + strconv.FormatInt(*exeID, 10))
+	}
+
+	g, ok := games[*gameNum]
+	if !ok {
+		panic("no such game: " + *gameNum)
+	}
+
 	// 게이머들의 프로세스를 실행합니다.
 	player := gamer.NewGamer("00000000-0000-0000-0000-000000000000")
 	fmt.Println("waiting for player...")
@@ -25,13 +42,9 @@ func main() {
 		panic(err)
 	}
 
-	// 게임을 설정합니다.
-	var gameID int64
-	g, _ := games["1000"]
-
 	fmt.Println("initializing game...")
 	gameCtx := game.Context{
-		GameID:      gameID,
+		GameID:      *exeID,
 		Player:      player,
 		Competition: competition,
 	}

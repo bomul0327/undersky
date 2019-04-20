@@ -6,24 +6,20 @@ import (
 	"strconv"
 	"time"
 
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 // ServerDriver 는 게이머 프로세스의 동작을 결정하는 인터페이스입니다.
 // 각 언어별 구현체가 필요합니다.
 type ServerDriver interface {
-	StartProcess() error
+	StartProcess(int) error
 }
 
-// Gamer 는
+// Gamer 는 게임을 수행하는 플레이어입니다.
 type Gamer struct {
 	UUID string
 
 	client GamerClient
-	// GetUUID() string
-
-	// StartServer(port int) error
-	// TakeAction(input []string) []string
 }
 
 // NewGamer 함수는 새로운 Gamer를 만듭니다.
@@ -33,7 +29,10 @@ func NewGamer(uuid string) *Gamer {
 
 // StartConnection 은 게이머 프로세스와의 커넥션을 맺습니다.
 func (gamer *Gamer) StartConnection(port int, driver ServerDriver) error {
-	driver.StartProcess()
+	err := driver.StartProcess(port)
+	if err != nil {
+		return err
+	}
 
 	conn, err := grpc.Dial("127.0.0.1:"+strconv.Itoa(port), grpc.WithInsecure())
 
@@ -74,7 +73,7 @@ func (gamer *Gamer) TakeAction(input []string) ([]string, error) {
 	return res.Data, nil
 }
 
-// Config 는
+// Config 는 게이머에 대한 메타 정보입니다.
 type Config struct {
 	UUID string
 
