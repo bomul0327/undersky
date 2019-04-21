@@ -1,3 +1,6 @@
+db.migrate:
+	@go run app/migrate/*.go up
+
 test:
 	@go test -v -cover ./...
 
