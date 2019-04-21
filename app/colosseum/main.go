@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hellodhlyn/undersky-colosseum/libs/s3"
+	"github.com/hellodhlyn/undersky/libs/s3"
 
 	"github.com/hellodhlyn/sqstask"
 
-	"github.com/hellodhlyn/undersky-colosseum/game"
-	"github.com/hellodhlyn/undersky-colosseum/gamer"
+	"github.com/hellodhlyn/undersky/game"
+	"github.com/hellodhlyn/undersky/gamer"
 )
 
 var games = map[string]game.Game{

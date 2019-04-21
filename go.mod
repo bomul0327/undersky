@@ -1,4 +1,4 @@
-module github.com/hellodhlyn/undersky-colosseum
+module github.com/hellodhlyn/undersky
 
 require (
 	github.com/aws/aws-sdk-go v1.19.15

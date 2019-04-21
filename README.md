@@ -1,14 +1,17 @@
-# Colosseum
+# Undersky
 
 ## Prerequisites
 
 - Golang (1.11 이상 권장)
-- Python (3.6 이상 권장)
-- Protobuf
+- Python (3.6 이상)
+- [Protoc](https://github.com/protocolbuffers/protobuf)
 
 ## Run
 
 ```bash
-docker build -t hellodhlyn/colosseum .
-docker run hellodhlyn/colosseum ./main --id <EXECUTION_ID> --game <GAME_ID>
+# Build images
+make docker.build
+
+# Run images
+make docker.colosseum.run
 ```

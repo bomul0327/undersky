@@ -3,7 +3,7 @@ package game
 import (
 	"errors"
 
-	"github.com/hellodhlyn/undersky-colosseum/gamer"
+	"github.com/hellodhlyn/undersky/gamer"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hellodhlyn/undersky-colosseum/gamer"
+	"github.com/hellodhlyn/undersky/gamer"
 )
 
 // Game1000 - 틱택토

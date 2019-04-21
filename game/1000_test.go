@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/hellodhlyn/undersky-colosseum/game"
+	"github.com/hellodhlyn/undersky/game"
 )
 
 var _ = Describe("TicTacToeBoard", func() {
