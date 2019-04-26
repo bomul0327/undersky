@@ -1,3 +1,9 @@
+api.start:
+	@go run app/api/*.go
+
+colosseum.start:
+	@go run app/colosseum/*.go
+
 db.migrate:
 	@go run app/migrate/*.go up
 

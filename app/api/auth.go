@@ -71,6 +71,8 @@ func getGoogleIdentity(token string) (*googleIdentity, error) {
 type signinOutput struct {
 	Registered  bool
 	AccessToken *string
+	SecretToken *string
+	ValidUntil  *int64
 }
 
 var signInOutputType = graphql.NewObject(graphql.ObjectConfig{
@@ -78,6 +80,8 @@ var signInOutputType = graphql.NewObject(graphql.ObjectConfig{
 	Fields: graphql.Fields{
 		"registered":  &graphql.Field{Type: graphql.NewNonNull(graphql.Boolean)},
 		"accessToken": &graphql.Field{Type: graphql.String},
+		"secretToken": &graphql.Field{Type: graphql.String},
+		"validUntil":  &graphql.Field{Type: graphql.Int},
 	},
 })
 
@@ -100,8 +104,16 @@ var signInWithGoogleQuery = &graphql.Field{
 			return &signinOutput{Registered: false}, nil
 		}
 
-		accessToken, _ := generateAccessToken(user.UUID)
-		return &signinOutput{Registered: true, AccessToken: &accessToken}, nil
+		cred := user.NewCredential()
+		us.DB.Save(cred)
+
+		validUntil := cred.ValidUntil.Unix() * 1000
+		return &signinOutput{
+			Registered:  true,
+			AccessToken: &cred.AccessToken,
+			SecretToken: &cred.SecretToken,
+			ValidUntil:  &validUntil,
+		}, nil
 	},
 }
 
@@ -124,13 +136,27 @@ var registerUserWithGoogleMutation = &graphql.Field{
 		input := p.Args["input"].(map[string]interface{})
 		identity, err := getGoogleIdentity(input["token"].(string))
 		if err != nil {
-			return nil, err
+			return nil, errors.New("Google 인증에 실패했습니다. 잠시 후 다시 시도해주세요.")
 		}
 
+		// 닉네임을 체크합니다.
+		username := input["username"].(string)
+		if len(username) < 2 || 20 < len(username) {
+			return nil, errors.New("닉네임 형식이 일치하지 않습니다.")
+		}
+
+		var count int
+		us.DB.Model(&us.User{}).Where("username ~* ?", username).Count(&count)
+		if count != 0 {
+			return nil, errors.New("중복된 닉네임입니다.")
+		}
+
+		// 새로운 회원 정보를 생성합니다.
 		u, _ := uuid.NewRandom()
 		us.DB.Save(&us.User{
-			UUID:  u.String(),
-			Email: identity.Email,
+			UUID:     u.String(),
+			Email:    identity.Email,
+			Username: username,
 		})
 
 		return &simpleResponse{"registered"}, nil

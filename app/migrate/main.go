@@ -12,6 +12,7 @@ import (
 func main() {
 	m := gormigrate.New(us.DB, gormigrate.DefaultOptions, []*gormigrate.Migration{
 		migration201904220001,
+		migration201904230001,
 	})
 
 	switch os.Args[1] {

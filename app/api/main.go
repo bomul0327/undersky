@@ -11,6 +11,8 @@ import (
 	"github.com/graphql-go/handler"
 )
 
+var schema graphql.Schema
+
 type simpleResponse struct {
 	Result string
 }
@@ -23,7 +25,7 @@ var simpleResponseType = graphql.NewObject(graphql.ObjectConfig{
 })
 
 func main() {
-	schema, _ := graphql.NewSchema(graphql.SchemaConfig{
+	schema, _ = graphql.NewSchema(graphql.SchemaConfig{
 		Query: graphql.NewObject(graphql.ObjectConfig{
 			Name: "RootQuery",
 			Fields: graphql.Fields{
@@ -33,7 +35,7 @@ func main() {
 		Mutation: graphql.NewObject(graphql.ObjectConfig{
 			Name: "RootMutation",
 			Fields: graphql.Fields{
-				"regisgerUserWithGoogle": registerUserWithGoogleMutation,
+				"registerUserWithGoogle": registerUserWithGoogleMutation,
 			},
 		}),
 	})
