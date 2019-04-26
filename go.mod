@@ -11,6 +11,7 @@ require (
 	github.com/hellodhlyn/sqstask v0.0.1
 	github.com/jinzhu/gorm v1.9.4
 	github.com/kr/pretty v0.1.0 // indirect
+	github.com/looplab/fsm v0.1.0
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	google.golang.org/grpc v1.20.1

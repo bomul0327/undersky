@@ -16,8 +16,8 @@ var (
 	// ErrPlayerBreakRule 오류는 유저(제출자)가 잘못된 동작을 취했을 때 반환됩니다.
 	ErrPlayerBreakRule = errors.New("player take invalid action")
 
-	// ErrCompetitionBreakRule 오류는 상대가 잘못된 동작을 취했을 때 반환됩니다.
-	ErrCompetitionBreakRule = errors.New("competition take invalid action")
+	// ErrCompetitorBreakRule 오류는 상대가 잘못된 동작을 취했을 때 반환됩니다.
+	ErrCompetitorBreakRule = errors.New("competitor take invalid action")
 )
 
 // Ruleset 은 게임에 관한 규칙에 대한 타입입니다.
@@ -26,24 +26,24 @@ type Ruleset struct {
 	RoundToWin   int
 }
 
-// Context 는
-type Context struct {
+// MatchContext 는 현재 진행중인 경기에 대한 컨텍스트입니다.
+type MatchContext struct {
 	GameID int64
 
-	Player      *gamer.Gamer
-	Competition *gamer.Gamer
+	Player     *gamer.Gamer
+	Competitor *gamer.Gamer
 }
 
 // Game 은 게임 플레이에 대한 인터페이스입니다.
 //
 // 호출 순서
-//   - InitGame()
+//   - InitMatch()
 //   - InitRound()
 //   - PlayRound()
 type Game interface {
 	GetRuleset() *Ruleset
 
-	InitGame(*Context) error
+	InitMatch(*MatchContext) error
 	InitRound() error
 	PlayRound() (string, error)
 }

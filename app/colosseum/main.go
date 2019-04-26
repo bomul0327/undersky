@@ -21,20 +21,20 @@ var games = map[string]game.Game{
 	"1000": &game.Game1000{},
 }
 
-type gameOptionsGamer struct {
+type matchOptionsGamer struct {
 	UUID       string `json:"uuid"`
 	Runtime    string `json:"runtime"`
 	SourceUUID string `json:"source_uuid"`
 }
 
-type gameOptions struct {
-	ExecutionID int64            `json:"execution_id"`
-	GameID      string           `json:"game_id"`
-	Player      gameOptionsGamer `json:"player"`
-	Competition gameOptionsGamer `json:"competition"`
+type matchOptions struct {
+	MatchID    int64             `json:"match_id"`
+	GameID     string            `json:"game_id"`
+	Player     matchOptionsGamer `json:"player"`
+	Competitor matchOptionsGamer `json:"competitor"`
 }
 
-func runGame(opts *gameOptions) {
+func runMatch(opts *matchOptions) {
 	g, ok := games[opts.GameID]
 	if !ok {
 		fmt.Printf("invalid game id: %s\n", opts.GameID)
@@ -49,24 +49,24 @@ func runGame(opts *gameOptions) {
 		return
 	}
 
-	fmt.Println("waiting for competition...")
-	competition, err := makeGamer(opts.GameID, opts.Competition)
+	fmt.Println("waiting for competitor...")
+	competitor, err := makeGamer(opts.GameID, opts.Competitor)
 	if err != nil {
-		fmt.Printf("failed to create competition: %v\n", err)
+		fmt.Printf("failed to create competitor: %v\n", err)
 		return
 	}
 
 	fmt.Println("initializing game...")
-	gameCtx := game.Context{
-		GameID:      opts.ExecutionID,
-		Player:      player,
-		Competition: competition,
+	matchCtx := game.MatchContext{
+		GameID:     opts.MatchID,
+		Player:     player,
+		Competitor: competitor,
 	}
-	g.InitGame(&gameCtx)
+	g.InitMatch(&matchCtx)
 
 	// 게임을 시작합니다.
 	var playerWins int8
-	var competitionWins int8
+	var competitorWins int8
 	for i := 0; i < g.GetRuleset().MaximumRound; i++ {
 		fmt.Println("initializing round...")
 		g.InitRound()
@@ -81,18 +81,18 @@ func runGame(opts *gameOptions) {
 		if winner == player.UUID {
 			fmt.Println("player win")
 			playerWins++
-		} else if winner == competition.UUID {
-			fmt.Println("competition win")
-			competitionWins++
+		} else if winner == competitor.UUID {
+			fmt.Println("competitor win")
+			competitorWins++
 		} else {
 			fmt.Println("draw")
 		}
 	}
 
-	fmt.Printf("[Result] Player %d : %d Competition\n", playerWins, competitionWins)
+	fmt.Printf("[Result] Player %d : %d Competitor\n", playerWins, competitorWins)
 }
 
-func makeGamer(gameID string, opts gameOptionsGamer) (*gamer.Gamer, error) {
+func makeGamer(gameID string, opts matchOptionsGamer) (*gamer.Gamer, error) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	port := 10000 + r.Int()%55535
 
@@ -124,9 +124,9 @@ func main() {
 	msg := flag.String("message", "", "sqs message for debug")
 	flag.Parse()
 	if *msg != "" {
-		var opts gameOptions
+		var opts matchOptions
 		json.Unmarshal([]byte(*msg), &opts)
-		runGame(&opts)
+		runMatch(&opts)
 		return
 	}
 
@@ -135,9 +135,9 @@ func main() {
 		AWSRegion:  "ap-northeast-2",
 		WorkerSize: 1,
 		Consume: func(message string) error {
-			var opts gameOptions
+			var opts matchOptions
 			json.Unmarshal([]byte(message), &opts)
-			runGame(&opts)
+			runMatch(&opts)
 			return nil
 		},
 		HandleError: func(err error) {

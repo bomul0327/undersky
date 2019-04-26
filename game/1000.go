@@ -23,7 +23,7 @@ import (
 //   [0] 내 차례에 표시할 좌표
 //       알파벳 한 글자, 숫자 한 글자의 두 자리 문자열 (왼쪽부터 A, B, C, 위에서부터 1, 2, 3)
 type Game1000 struct {
-	ctx   *Context
+	ctx   *MatchContext
 	board *TicTacToeBoard
 
 	firstGamer  *gamer.Gamer
@@ -39,8 +39,8 @@ func (*Game1000) GetRuleset() *Ruleset {
 	}
 }
 
-// InitGame 함수는 게임의 기본을 설정합니다.
-func (game *Game1000) InitGame(ctx *Context) error {
+// InitMatch 함수는 게임의 기본을 설정합니다.
+func (game *Game1000) InitMatch(ctx *MatchContext) error {
 	game.ctx = ctx
 
 	return nil
@@ -53,9 +53,9 @@ func (game *Game1000) InitRound() error {
 	// 선공과 후공을 정합니다. 선공은 1, 후공은 2를 놓습니다.
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	if r.Intn(2) == 0 {
-		game.firstGamer, game.secondGamer = game.ctx.Player, game.ctx.Competition
+		game.firstGamer, game.secondGamer = game.ctx.Player, game.ctx.Competitor
 	} else {
-		game.firstGamer, game.secondGamer = game.ctx.Competition, game.ctx.Player
+		game.firstGamer, game.secondGamer = game.ctx.Competitor, game.ctx.Player
 	}
 
 	return nil
@@ -77,7 +77,7 @@ func (game *Game1000) PlayRound() (string, error) {
 		if actor.UUID == game.ctx.Player.UUID {
 			ruleBreakError = ErrPlayerBreakRule
 		} else {
-			ruleBreakError = ErrCompetitionBreakRule
+			ruleBreakError = ErrCompetitorBreakRule
 		}
 
 		// 동작을 취합니다.

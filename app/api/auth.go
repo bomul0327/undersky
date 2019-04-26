@@ -5,8 +5,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
@@ -15,30 +13,16 @@ import (
 	us "github.com/hellodhlyn/undersky"
 )
 
-var hmacSecret []byte
-
-type authClaims struct {
-	UUID string `json:"uuid"`
-	jwt.StandardClaims
-}
-
-func generateAccessToken(userUUID string) (string, error) {
-	claim := authClaims{
-		userUUID,
-		jwt.StandardClaims{
-			Issuer:    "UnderskyAPI",
-			IssuedAt:  time.Now().Unix(),
-			ExpiresAt: time.Now().AddDate(0, 0, 7).Unix(),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
-
-	if len(hmacSecret) == 0 {
-		hmacSecret = []byte(os.Getenv("UNDERSKY_SECRET_KEY"))
-	}
-	return token.SignedString(hmacSecret)
-}
+var userType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "User",
+	Fields: graphql.Fields{
+		"uuid":      &graphql.Field{Type: graphql.NewNonNull(graphql.Int)},
+		"email":     &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+		"username":  &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+		"createdAt": &graphql.Field{Type: graphql.NewNonNull(graphql.DateTime)},
+		"updatedAt": &graphql.Field{Type: graphql.NewNonNull(graphql.DateTime)},
+	},
+})
 
 type googleIdentity struct {
 	Email string `json:"email"`
@@ -161,4 +145,35 @@ var registerUserWithGoogleMutation = &graphql.Field{
 
 		return &simpleResponse{"registered"}, nil
 	},
+}
+
+type authClaims struct {
+	AccessToken string `json:"accessToken"`
+	jwt.StandardClaims
+}
+
+func getUserFromJWTToken(tokenString string) (*us.User, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &authClaims{}, func(t *jwt.Token) (interface{}, error) {
+		var cred us.Credential
+		errs := us.DB.Where(&us.Credential{AccessToken: t.Claims.(*authClaims).AccessToken}).First(&cred).GetErrors()
+		if len(errs) > 0 || cred.ID == 0 || cred.HasExpired() {
+			return nil, errors.New("인증에 실패했습니다.")
+		}
+
+		return []byte(cred.SecretToken), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*authClaims); ok && token.Valid {
+		var cred us.Credential
+		us.DB.Where(&us.Credential{AccessToken: claims.AccessToken}).First(&cred)
+
+		var user us.User
+		us.DB.Where(&us.User{ID: cred.UserID}).First(&user)
+
+		return &user, nil
+	}
+	return nil, errors.New("인증에 실패했습니다.")
 }

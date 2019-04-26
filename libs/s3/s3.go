@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"io"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -24,6 +25,18 @@ func NewClient(bucketName string) (*S3Client, error) {
 		bucketName: bucketName,
 		sess:       sess,
 	}, nil
+}
+
+func (c *S3Client) UploadFromBytes(key string, reader io.Reader) error {
+	uploader := s3manager.NewUploader(c.sess)
+
+	_, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(key),
+		Body:   reader,
+	})
+
+	return err
 }
 
 func (c *S3Client) Download(key, filepath string) error {
