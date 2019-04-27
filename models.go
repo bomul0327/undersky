@@ -49,10 +49,11 @@ func (c *Credential) HasExpired() bool {
 
 // Game 은 게임 모델입니다.
 type Game struct {
-	ID int64 `gorm:"primary_key"`
+	ID int64 `gorm:"primary_key" json:"-"`
 
-	GameID      string `gorm:"type:varchar(10);not null;unique_index"`
+	GameID      string `gorm:"type:varchar(10);not null;unique_index" json:"id"`
 	Title       string `gorm:"type:varchar(64);not null"`
+	Summary     string `gorm:"type:text"`
 	Description string `gorm:"type:text"`
 
 	CreatedAt time.Time
@@ -65,7 +66,8 @@ type Match struct {
 	UUID string `gorm:"type:varchar(36);not null;unique_index"`
 
 	// submitted | initializing | started | finished | failed
-	State *FSM `gorm:"type:varchar(16);not null"`
+	State   *fsm.FSM `gorm:"-"`
+	StateDB string   `gorm:"column:state;type:varchar(16);not null"`
 
 	GameID                 string `gorm:"type:varchar(10);not null;index"`
 	PlayerID               int64  `gorm:"not null;index"`
@@ -85,6 +87,30 @@ type Match struct {
 	UpdatedAt time.Time
 }
 
+// BeforeSave 는 DB에 저장되기 전에 호출되는 GORM hook 입니다.
+// Reference => http://gorm.io/docs/hooks.html
+func (m *Match) BeforeSave() error {
+	m.StateDB = m.State.Current()
+	return nil
+}
+
+func (m *Match) AfterFind() error {
+	if m.State == nil {
+		m.State = fsm.NewFSM(
+			"submitted",
+			fsm.Events{
+				{Name: "init", Src: []string{"submitted"}, Dst: "initializing"},
+				{Name: "start", Src: []string{"initializing"}, Dst: "started"},
+				{Name: "finish", Src: []string{"started"}, Dst: "finished"},
+				{Name: "fail", Src: []string{"submitted", "initializing", "started"}, Dst: "failed"},
+			},
+			fsm.Callbacks{},
+		)
+	}
+	m.State.SetState(m.StateDB)
+	return nil
+}
+
 // NewMatch 는 두 유저간의 경기를 만듭니다.
 func NewMatch(gameID string, playerID, playerSubID, compID, compSubID int64) *Match {
 	u, _ := uuid.NewRandom()
@@ -97,7 +123,7 @@ func NewMatch(gameID string, playerID, playerSubID, compID, compSubID int64) *Ma
 		CompetitorID:           compID,
 		CompetitorSubmissionID: compSubID,
 
-		State: NewFSM(
+		State: fsm.NewFSM(
 			"submitted",
 			fsm.Events{
 				{Name: "init", Src: []string{"submitted"}, Dst: "initializing"},

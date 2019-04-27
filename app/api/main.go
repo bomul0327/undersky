@@ -27,6 +27,7 @@ var (
 	submissionTask *sqstask.SQSTask
 )
 
+// simpleResponse 는 특별한 반환 타입이 없는 mutation API의 응답으로 사용되는 타입입니다.
 type simpleResponse struct {
 	Result string
 }
@@ -71,6 +72,11 @@ func main() {
 			Name: "RootQuery",
 			Fields: graphql.Fields{
 				"signInWithGoogle": signInWithGoogleQuery,
+				"game":             gameQuery,
+				"gameList":         gameListQuery,
+				"match":            matchQuery,
+				"matchList":        matchListQuery,
+				"submission":       submissionQuery,
 			},
 		}),
 		Mutation: graphql.NewObject(graphql.ObjectConfig{

@@ -16,7 +16,7 @@ import (
 var userType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "User",
 	Fields: graphql.Fields{
-		"uuid":      &graphql.Field{Type: graphql.NewNonNull(graphql.Int)},
+		"uuid":      &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 		"email":     &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 		"username":  &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 		"createdAt": &graphql.Field{Type: graphql.NewNonNull(graphql.DateTime)},

@@ -45,6 +45,23 @@ var submissionType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+var submissionQuery = &graphql.Field{
+	Type:        submissionType,
+	Description: "제출 정보를 조회합니다.",
+	Args: graphql.FieldConfigArgument{
+		"id": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+	},
+	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+		var sub us.Submission
+		id, _ := strconv.ParseInt(p.Args["id"].(string), 10, 64)
+		us.DB.Where(&us.Submission{ID: id}).First(&sub)
+		if sub.ID == 0 {
+			return nil, nil
+		}
+		return &sub, nil
+	},
+}
+
 var submitSourceMutation = &graphql.Field{
 	Type:        graphql.NewNonNull(submissionType),
 	Description: "소스코드를 제출합니다.",

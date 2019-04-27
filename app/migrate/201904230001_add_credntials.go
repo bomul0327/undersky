@@ -10,7 +10,6 @@ import (
 var migration201904230001 = &gormigrate.Migration{
 	ID: "201904230001",
 	Migrate: func(db *gorm.DB) error {
-		db.CreateTable()
 		return db.CreateTable(
 			us.Credential{},
 		).Error
