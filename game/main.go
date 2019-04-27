@@ -28,10 +28,15 @@ type Ruleset struct {
 
 // MatchContext 는 현재 진행중인 경기에 대한 컨텍스트입니다.
 type MatchContext struct {
-	GameID int64
+	MatchUUID string
 
 	Player     *gamer.Gamer
 	Competitor *gamer.Gamer
+}
+
+// RoundResult 는 플레이한 라운드의 결과 타입입니다.
+type RoundResult struct {
+	WinnerID int64
 }
 
 // Game 은 게임 플레이에 대한 인터페이스입니다.
@@ -45,5 +50,5 @@ type Game interface {
 
 	InitMatch(*MatchContext) error
 	InitRound() error
-	PlayRound() (string, error)
+	PlayRound() (*RoundResult, error)
 }

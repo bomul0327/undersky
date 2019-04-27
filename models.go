@@ -65,10 +65,9 @@ type Match struct {
 	UUID string `gorm:"type:varchar(36);not null;unique_index"`
 
 	// submitted | initializing | started | finished | failed
-	State *fsm.FSM `gorm:"type:varchar(16);not null"`
+	State *FSM `gorm:"type:varchar(16);not null"`
 
 	GameID                 string `gorm:"type:varchar(10);not null;index"`
-	MatchUUID              string `gorm:"type:varchar(36);not null;unique_index"`
 	PlayerID               int64  `gorm:"not null;index"`
 	PlayerSubmissionID     int64  `gorm:"not null;index"`
 	CompetitorID           int64  `gorm:"not null;index"`
@@ -98,17 +97,55 @@ func NewMatch(gameID string, playerID, playerSubID, compID, compSubID int64) *Ma
 		CompetitorID:           compID,
 		CompetitorSubmissionID: compSubID,
 
-		State: fsm.NewFSM(
+		State: NewFSM(
 			"submitted",
 			fsm.Events{
 				{Name: "init", Src: []string{"submitted"}, Dst: "initializing"},
 				{Name: "start", Src: []string{"initializing"}, Dst: "started"},
 				{Name: "finish", Src: []string{"started"}, Dst: "finished"},
-				{Name: "fail", Src: []string{"initializing", "started"}, Dst: "failed"},
+				{Name: "fail", Src: []string{"submitted", "initializing", "started"}, Dst: "failed"},
 			},
 			fsm.Callbacks{},
 		),
 	}
+}
+
+// Init 은 경기의 초기화 단계에 들어갔을 경우 발생하는 이벤트입니다.
+func (m *Match) Init() {
+	m.State.Event("init")
+	DB.Save(m)
+}
+
+// Start 는 경기가 시작했을 때 발생하는 이벤트입니다.
+func (m *Match) Start() {
+	m.State.Event("start")
+	DB.Save(m)
+}
+
+// Finish 는 경기가 종료되었을 때 발생하는 이벤트입니다.
+func (m *Match) Finish(total, player, comp int) {
+	m.State.Event("finish")
+	m.TotalRound = total
+	m.PlayerWin = player
+	m.CompetitorWin = comp
+
+	if player > comp {
+		m.Result = "win"
+	} else if player < comp {
+		m.Result = "lose"
+	} else {
+		m.Result = "draw"
+	}
+
+	DB.Save(m)
+}
+
+// Fail 은 경기가 실패했을 경우 발생하는 이벤트입니다.
+func (m *Match) Fail(errMessage string) {
+	m.State.Event("fail")
+	m.Result = "error"
+	m.ErrorMessage = errMessage
+	DB.Save(m)
 }
 
 // Submission 은 유저의 제출 기록입니다. 소스 코드는 별도로 S3에 저장됩니다.
@@ -122,6 +159,7 @@ type Submission struct {
 	// python3.6
 	Runtime     string `gorm:"type:varchar(32);not null" json:"runtime"`
 	Description string `gorm:"type:varchar(40)" json:"description"`
+	IsBaseline  bool   `gorm:"default:false"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -132,6 +170,7 @@ func NewSubmission(userID int64, gameID, runtime, desc string) *Submission {
 	u, _ := uuid.NewRandom()
 	return &Submission{
 		UUID:        u.String(),
+		UserID:      userID,
 		GameID:      gameID,
 		Runtime:     runtime,
 		Description: desc,

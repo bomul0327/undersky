@@ -1,10 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 
 	us "github.com/hellodhlyn/undersky"
@@ -52,10 +53,11 @@ var submitSourceMutation = &graphql.Field{
 			Type: graphql.NewInputObject(graphql.InputObjectConfig{
 				Name: "SubmitSourceInput",
 				Fields: graphql.InputObjectConfigFieldMap{
-					"gameID":      &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
-					"runtime":     &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
-					"source":      &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
-					"description": &graphql.InputObjectFieldConfig{Type: graphql.String},
+					"gameID":                 &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
+					"runtime":                &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
+					"source":                 &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
+					"description":            &graphql.InputObjectFieldConfig{Type: graphql.String},
+					"competitorSubmissionID": &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
 				},
 			}),
 		},
@@ -81,11 +83,15 @@ var submitSourceMutation = &graphql.Field{
 		}
 		us.DB.Save(&sub)
 
-		msg, err := json.Marshal(sub)
-		if err != nil {
-			return nil, errFailed
+		u, _ := uuid.NewRandom()
+		compSubID, _ := strconv.ParseInt(input["competitorSubmissionID"].(string), 10, 64)
+		payload := us.SubmissionPayload{
+			GameID:                 sub.GameID,
+			MatchUUID:              u.String(),
+			PlayerSubmissionID:     sub.ID,
+			CompetitorSubmissionID: compSubID,
 		}
-		err = submissionTask.Produce(string(msg))
+		err = submissionTask.Produce(string(payload.ToJSON()))
 		if err != nil {
 			return nil, errFailed
 		}

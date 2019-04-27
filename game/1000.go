@@ -34,8 +34,8 @@ type Game1000 struct {
 //   - 9판 5선승제
 func (*Game1000) GetRuleset() *Ruleset {
 	return &Ruleset{
-		MaximumRound: 9,
-		RoundToWin:   5,
+		MaximumRound: 99,
+		RoundToWin:   99,
 	}
 }
 
@@ -62,7 +62,7 @@ func (game *Game1000) InitRound() error {
 }
 
 // PlayRound 함수는 라운드를 실행합니다.
-func (game *Game1000) PlayRound() (string, error) {
+func (game *Game1000) PlayRound() (*RoundResult, error) {
 	step := 1
 	for {
 		// 차례를 결정합니다.
@@ -74,7 +74,7 @@ func (game *Game1000) PlayRound() (string, error) {
 		}
 
 		var ruleBreakError error
-		if actor.UUID == game.ctx.Player.UUID {
+		if actor.ID == game.ctx.Player.ID {
 			ruleBreakError = ErrPlayerBreakRule
 		} else {
 			ruleBreakError = ErrCompetitorBreakRule
@@ -83,18 +83,18 @@ func (game *Game1000) PlayRound() (string, error) {
 		// 동작을 취합니다.
 		output, err := actor.TakeAction([]string{strconv.Itoa((step+1)%2 + 1), game.board.GetInputText()})
 		if err != nil {
-			return "", ErrInternalError
+			return nil, ErrInternalError
 		}
 		if len(output) != 1 || len(output[0]) != 2 {
-			return "", ruleBreakError
+			return nil, ruleBreakError
 		}
 		game.board.Set(output[0], int8((step+1)%2+1))
 
 		switch game.board.FindWinner() {
 		case 1:
-			return game.firstGamer.UUID, nil
+			return &RoundResult{WinnerID: game.firstGamer.ID}, nil
 		case 2:
-			return game.secondGamer.UUID, nil
+			return &RoundResult{WinnerID: game.secondGamer.ID}, nil
 		}
 
 		if step == 9 {
@@ -103,7 +103,7 @@ func (game *Game1000) PlayRound() (string, error) {
 		step++
 	}
 
-	return "", nil
+	return &RoundResult{WinnerID: -1}, nil
 }
 
 // TicTacToeBoard 는 틱택토 게임을 진행하는 보드입니다.

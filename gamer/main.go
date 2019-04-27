@@ -17,14 +17,13 @@ type ServerDriver interface {
 
 // Gamer 는 게임을 수행하는 플레이어입니다.
 type Gamer struct {
-	UUID string
-
+	ID     int64
 	client GamerClient
 }
 
 // NewGamer 함수는 새로운 Gamer를 만듭니다.
-func NewGamer(uuid string) *Gamer {
-	return &Gamer{UUID: uuid}
+func NewGamer(id int64) *Gamer {
+	return &Gamer{ID: id}
 }
 
 // StartConnection 은 게이머 프로세스와의 커넥션을 맺습니다.

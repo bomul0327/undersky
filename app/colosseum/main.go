@@ -9,104 +9,105 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hellodhlyn/undersky/libs/s3"
-
 	"github.com/hellodhlyn/sqstask"
 
+	us "github.com/hellodhlyn/undersky"
 	"github.com/hellodhlyn/undersky/game"
 	"github.com/hellodhlyn/undersky/gamer"
+	"github.com/hellodhlyn/undersky/libs/s3"
 )
 
 var games = map[string]game.Game{
 	"1000": &game.Game1000{},
 }
 
-type matchOptionsGamer struct {
-	UUID       string `json:"uuid"`
-	Runtime    string `json:"runtime"`
-	SourceUUID string `json:"source_uuid"`
-}
+func runMatch(payload *us.SubmissionPayload) (match *us.Match) {
+	var playerSub us.Submission
+	var compSub us.Submission
+	us.DB.Where(&us.Submission{ID: payload.PlayerSubmissionID}).First(&playerSub)
+	us.DB.Where(&us.Submission{ID: payload.CompetitorSubmissionID}).First(&compSub)
 
-type matchOptions struct {
-	MatchID    int64             `json:"match_id"`
-	GameID     string            `json:"game_id"`
-	Player     matchOptionsGamer `json:"player"`
-	Competitor matchOptionsGamer `json:"competitor"`
-}
-
-func runMatch(opts *matchOptions) {
-	g, ok := games[opts.GameID]
+	g, ok := games[payload.GameID]
 	if !ok {
-		fmt.Printf("invalid game id: %s\n", opts.GameID)
-		return
+		fmt.Printf("invalid game id: %s\n", payload.GameID)
+		return nil
 	}
 
-	// 게이머들의 프로세스를 실행합니다.
-	fmt.Println("waiting for player...")
-	player, err := makeGamer(opts.GameID, opts.Player)
+	match = us.NewMatch(payload.GameID, playerSub.UserID, playerSub.ID, compSub.UserID, compSub.ID)
+	us.DB.Save(match)
+
+	player, err := makeGamer(playerSub)
 	if err != nil {
 		fmt.Printf("failed to create player: %v\n", err)
+		match.Fail("플레이어가 제출한 코드의 실행에 실패했습니다.")
 		return
 	}
 
-	fmt.Println("waiting for competitor...")
-	competitor, err := makeGamer(opts.GameID, opts.Competitor)
+	competitor, err := makeGamer(compSub)
 	if err != nil {
 		fmt.Printf("failed to create competitor: %v\n", err)
+		match.Fail("상대방이 제출한 코드의 실행에 실패했습니다.")
 		return
 	}
 
-	fmt.Println("initializing game...")
+	match.Init()
 	matchCtx := game.MatchContext{
-		GameID:     opts.MatchID,
+		MatchUUID:  payload.MatchUUID,
 		Player:     player,
 		Competitor: competitor,
 	}
 	g.InitMatch(&matchCtx)
 
 	// 게임을 시작합니다.
-	var playerWins int8
-	var competitorWins int8
+	match.Start()
+	var playerWins int
+	var competitorWins int
 	for i := 0; i < g.GetRuleset().MaximumRound; i++ {
-		fmt.Println("initializing round...")
 		g.InitRound()
 
 		fmt.Println("starting round...")
-		winner, err := g.PlayRound()
+		result, err := g.PlayRound()
 		if err != nil {
 			fmt.Printf("error on playing round: %v\n", err)
+			if err == game.ErrPlayerBreakRule {
+				match.Fail("플레이어가 규칙에 맞지 않는 결과를 제출했습니다.")
+			} else if err == game.ErrCompetitorBreakRule {
+				match.Fail("상대방이 규칙에 맞지 않는 결과를 반환했습니다.")
+			} else {
+				match.Fail("게임의 실행 중 오류가 발생했습니다.")
+			}
+
 			return
 		}
 
-		if winner == player.UUID {
-			fmt.Println("player win")
+		if result.WinnerID == player.ID {
 			playerWins++
-		} else if winner == competitor.UUID {
-			fmt.Println("competitor win")
+		} else if result.WinnerID == competitor.ID {
 			competitorWins++
-		} else {
-			fmt.Println("draw")
 		}
 	}
 
 	fmt.Printf("[Result] Player %d : %d Competitor\n", playerWins, competitorWins)
+	match.Finish(g.GetRuleset().MaximumRound, playerWins, competitorWins)
+
+	return
 }
 
-func makeGamer(gameID string, opts matchOptionsGamer) (*gamer.Gamer, error) {
+func makeGamer(sub us.Submission) (*gamer.Gamer, error) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	port := 10000 + r.Int()%55535
 
-	g := gamer.NewGamer(opts.UUID)
+	g := gamer.NewGamer(sub.UserID)
 
 	var driver gamer.ServerDriver
-	switch opts.Runtime {
+	switch sub.Runtime {
 	case "python3.6":
 		s3client, err := s3.NewClient("undersky-ai")
 		if err != nil {
 			return nil, err
 		}
 
-		err = s3client.Download("source/"+gameID+"/"+opts.SourceUUID, "source/"+strconv.Itoa(port)+".py")
+		err = s3client.Download(sub.GetS3Key(), "source/"+strconv.Itoa(port)+".py")
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +115,7 @@ func makeGamer(gameID string, opts matchOptionsGamer) (*gamer.Gamer, error) {
 		driver = gamer.NewPython3Driver("source." + strconv.Itoa(port))
 
 	default:
-		return nil, errors.New("no such runtime: " + opts.Runtime)
+		return nil, errors.New("no such runtime: " + sub.Runtime)
 	}
 
 	return g, g.StartConnection(port, driver)
@@ -124,9 +125,9 @@ func main() {
 	msg := flag.String("message", "", "sqs message for debug")
 	flag.Parse()
 	if *msg != "" {
-		var opts matchOptions
-		json.Unmarshal([]byte(*msg), &opts)
-		runMatch(&opts)
+		var payload us.SubmissionPayload
+		json.Unmarshal([]byte(*msg), &payload)
+		runMatch(&payload)
 		return
 	}
 
@@ -135,9 +136,9 @@ func main() {
 		AWSRegion:  "ap-northeast-2",
 		WorkerSize: 1,
 		Consume: func(message string) error {
-			var opts matchOptions
-			json.Unmarshal([]byte(message), &opts)
-			runMatch(&opts)
+			var payload us.SubmissionPayload
+			json.Unmarshal([]byte(message), &payload)
+			runMatch(&payload)
 			return nil
 		},
 		HandleError: func(err error) {

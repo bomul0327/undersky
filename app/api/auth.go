@@ -172,6 +172,9 @@ func getUserFromJWTToken(tokenString string) (*us.User, error) {
 
 		var user us.User
 		us.DB.Where(&us.User{ID: cred.UserID}).First(&user)
+		if user.ID == 0 {
+			return nil, errors.New("인증에 실패했습니다.")
+		}
 
 		return &user, nil
 	}
