@@ -92,7 +92,7 @@ var submitSourceMutation = &graphql.Field{
 					"runtime":                &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
 					"source":                 &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
 					"description":            &graphql.InputObjectFieldConfig{Type: graphql.String},
-					"competitorSubmissionID": &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
+					"competitorSubmissionID": &graphql.InputObjectFieldConfig{Type: graphql.String},
 				},
 			}),
 		},
@@ -107,10 +107,13 @@ var submitSourceMutation = &graphql.Field{
 		}
 
 		var compSub us.Submission
-		compSubID, _ := strconv.ParseInt(input["competitorSubmissionID"].(string), 10, 64)
-		us.DB.Where(&us.Submission{ID: compSubID}).First(&compSub)
-		if compSub.ID == 0 {
-			return nil, errors.New("매칭 상대가 올바르지 않습니다.")
+		compSubID, doMatch := input["competitorSubmissionID"].(string)
+		if doMatch {
+			id, _ := strconv.ParseInt(compSubID, 10, 64)
+			us.DB.Where(&us.Submission{ID: id}).First(&compSub)
+			if compSub.ID == 0 {
+				return nil, errors.New("매칭 상대가 올바르지 않습니다.")
+			}
 		}
 
 		// 새로운 제출 정보를 생성하고, S3에 소스코드를 업로드합니다.
@@ -126,13 +129,15 @@ var submitSourceMutation = &graphql.Field{
 		us.DB.Save(&sub)
 
 		// 매칭을 생성합니다.
-		match := us.NewMatch(input["gameID"].(string), user.ID, sub.ID, compSub.UserID, compSub.ID)
-		us.DB.Save(&match)
+		if doMatch {
+			match := us.NewMatch(input["gameID"].(string), user.ID, sub.ID, compSub.UserID, compSub.ID)
+			us.DB.Save(&match)
 
-		payload := us.SubmissionPayload{MatchUUID: match.UUID}
-		err = submissionTask.Produce(string(payload.ToJSON()))
-		if err != nil {
-			return nil, errFailed
+			payload := us.SubmissionPayload{MatchUUID: match.UUID}
+			err = submissionTask.Produce(string(payload.ToJSON()))
+			if err != nil {
+				return nil, errFailed
+			}
 		}
 
 		return sub, nil
