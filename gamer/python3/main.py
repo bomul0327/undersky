@@ -15,15 +15,24 @@ _DEFAULT_TIMEOUT = 60
 class GamerServer(gamer_pb2_grpc.GamerServicer):
     def __init__(self, action):
         self.action = action
+        self.userdata = {}
 
     def Ping(self, request, context):
         return gamer_pb2.PingMessage(id='dummy')
 
     def Action(self, request, context):
-        data, ctx = self.action(request.data, {})
+        context = {
+            'gameId': request.gameId,
+            'totalRound': request.totalRound,
+            'currentRound': request.currentRound,
+            'userdata': self.userdata,
+        }
+        result, userdata = self.action(request.data, context)
+
+        self.userdata = userdata
         return gamer_pb2.ActionOutput(
             id=request.id,
-            data=data,
+            data=result,
         )
 
 

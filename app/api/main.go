@@ -72,11 +72,13 @@ func main() {
 			Name: "RootQuery",
 			Fields: graphql.Fields{
 				"signInWithGoogle": signInWithGoogleQuery,
+				"me":               meQuery,
 				"game":             gameQuery,
 				"gameList":         gameListQuery,
 				"match":            matchQuery,
 				"matchList":        matchListQuery,
 				"submission":       submissionQuery,
+				"submissionList":   submissionListQuery,
 			},
 		}),
 		Mutation: graphql.NewObject(graphql.ObjectConfig{

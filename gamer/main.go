@@ -56,11 +56,14 @@ func (gamer *Gamer) StartConnection(port int, driver ServerDriver) error {
 
 // TakeAction 함수는 Gamer에게 게임의 현 상태에 대한 input을 제공하고,
 // 판단한 결과를 취합니다.
-func (gamer *Gamer) TakeAction(input []string) ([]string, error) {
+func (gamer *Gamer) TakeAction(gameID string, totalRound, currentRound int32, input []string) ([]string, error) {
 	actionID := "test"
 	res, err := gamer.client.Action(context.Background(), &ActionInput{
-		Id:   actionID,
-		Data: input,
+		Id:           actionID,
+		GameId:       gameID,
+		TotalRound:   totalRound,
+		CurrentRound: currentRound,
+		Data:         input,
 	})
 	if err != nil {
 		return nil, err

@@ -1,6 +1,8 @@
 package gamer
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -23,7 +25,16 @@ func (driver *Python3Driver) StartProcess(port int) error {
 		cmd.Env = append(os.Environ(), "PYTHONPATH="+workDir)
 	}
 
-	go func() { cmd.Run() }()
+	go func() {
+		var outb, errb bytes.Buffer
+		cmd.Stdout = &outb
+		cmd.Stderr = &errb
+
+		cmd.Run()
+
+		fmt.Println("out: ", outb.String())
+		fmt.Println("err: ", errb.String())
+	}()
 
 	return nil
 }

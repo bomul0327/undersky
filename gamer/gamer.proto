@@ -13,7 +13,10 @@ message PingMessage {
 
 message ActionInput {
     string id = 1;
-    repeated string data = 2;
+    string gameId = 2;
+    int32 totalRound = 3;
+    int32 currentRound = 4;
+    repeated string data = 5;
 }
 
 message ActionOutput {

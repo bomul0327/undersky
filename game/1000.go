@@ -62,7 +62,7 @@ func (game *Game1000) InitRound() error {
 }
 
 // PlayRound 함수는 라운드를 실행합니다.
-func (game *Game1000) PlayRound() (*RoundResult, error) {
+func (game *Game1000) PlayRound(roundNum int) (*RoundResult, error) {
 	step := 1
 	for {
 		// 차례를 결정합니다.
@@ -81,7 +81,12 @@ func (game *Game1000) PlayRound() (*RoundResult, error) {
 		}
 
 		// 동작을 취합니다.
-		output, err := actor.TakeAction([]string{strconv.Itoa((step+1)%2 + 1), game.board.GetInputText()})
+		output, err := actor.TakeAction(
+			"1000",
+			int32(game.GetRuleset().MaximumRound),
+			int32(roundNum),
+			[]string{strconv.Itoa((step+1)%2 + 1), game.board.GetInputText()},
+		)
 		if err != nil {
 			return nil, ErrInternalError
 		}

@@ -105,10 +105,15 @@ var matchQuery = &graphql.Field{
 var matchListQuery = &graphql.Field{
 	Type:        listTypeOf(matchType, "MatchList"),
 	Description: "경기 정보 목록을 조회합니다.",
-	Args:        graphql.FieldConfigArgument{},
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+		query := us.DB.Model(&us.Match{})
+		switch p.Source.(type) {
+		case *us.Submission:
+			query = query.Where(&us.Match{PlayerSubmissionID: p.Source.(*us.Submission).ID})
+		}
+
 		var matches []us.Match
-		us.DB.Model(&us.Match{}).Order("id desc").Find(&matches)
+		query.Order("id desc").Find(&matches)
 
 		var results []interface{}
 		for _, m := range matches {

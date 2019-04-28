@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='gamer',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x0bgamer.proto\x12\x05gamer\"\x19\n\x0bPingMessage\x12\n\n\x02id\x18\x01 \x01(\t\"\'\n\x0b\x41\x63tionInput\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x03(\t\"(\n\x0c\x41\x63tionOutput\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x03(\t2n\n\x05Gamer\x12\x30\n\x04Ping\x12\x12.gamer.PingMessage\x1a\x12.gamer.PingMessage\"\x00\x12\x33\n\x06\x41\x63tion\x12\x12.gamer.ActionInput\x1a\x13.gamer.ActionOutput\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x0bgamer.proto\x12\x05gamer\"\x19\n\x0bPingMessage\x12\n\n\x02id\x18\x01 \x01(\t\"a\n\x0b\x41\x63tionInput\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06gameId\x18\x02 \x01(\t\x12\x12\n\ntotalRound\x18\x03 \x01(\x05\x12\x14\n\x0c\x63urrentRound\x18\x04 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x05 \x03(\t\"(\n\x0c\x41\x63tionOutput\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x03(\t2n\n\x05Gamer\x12\x30\n\x04Ping\x12\x12.gamer.PingMessage\x1a\x12.gamer.PingMessage\"\x00\x12\x33\n\x06\x41\x63tion\x12\x12.gamer.ActionInput\x1a\x13.gamer.ActionOutput\"\x00\x62\x06proto3')
 )
 
 
@@ -72,8 +72,29 @@ _ACTIONINPUT = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='data', full_name='gamer.ActionInput.data', index=1,
-      number=2, type=9, cpp_type=9, label=3,
+      name='gameId', full_name='gamer.ActionInput.gameId', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='totalRound', full_name='gamer.ActionInput.totalRound', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='currentRound', full_name='gamer.ActionInput.currentRound', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='data', full_name='gamer.ActionInput.data', index=4,
+      number=5, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -91,7 +112,7 @@ _ACTIONINPUT = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=49,
-  serialized_end=88,
+  serialized_end=146,
 )
 
 
@@ -128,8 +149,8 @@ _ACTIONOUTPUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=90,
-  serialized_end=130,
+  serialized_start=148,
+  serialized_end=188,
 )
 
 DESCRIPTOR.message_types_by_name['PingMessage'] = _PINGMESSAGE
@@ -166,8 +187,8 @@ _GAMER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=132,
-  serialized_end=242,
+  serialized_start=190,
+  serialized_end=300,
   methods=[
   _descriptor.MethodDescriptor(
     name='Ping',

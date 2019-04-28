@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 
 	us "github.com/hellodhlyn/undersky"
@@ -42,6 +41,7 @@ var submissionType = graphql.NewObject(graphql.ObjectConfig{
 		"runtime":   &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 		"createdAt": &graphql.Field{Type: graphql.NewNonNull(graphql.DateTime)},
 		"updatedAt": &graphql.Field{Type: graphql.NewNonNull(graphql.DateTime)},
+		// 순환참조 문제로, `matchList` 필드는 init() 메소드에 선언됩니다.
 	},
 })
 
@@ -59,6 +59,24 @@ var submissionQuery = &graphql.Field{
 			return nil, nil
 		}
 		return &sub, nil
+	},
+}
+
+var submissionListQuery = &graphql.Field{
+	Type:        listTypeOf(submissionType, "SubmissionList"),
+	Description: "제출 정보 목록을 조회합니다.",
+	Args:        graphql.FieldConfigArgument{},
+	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+		var subs []us.Submission
+		us.DB.Model(&us.Submission{}).Order("id desc").Find(&subs)
+
+		var results []interface{}
+		for _, s := range subs {
+			sub := s
+			results = append(results, &sub)
+		}
+
+		return listType{results}, nil
 	},
 }
 
@@ -80,7 +98,7 @@ var submitSourceMutation = &graphql.Field{
 		},
 	},
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-		errFailed := errors.New("소스 코드 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.")
+		errFailed := errors.New("제출에 실패했습니다. 잠시 후 다시 시도해주세요.")
 
 		input := p.Args["input"].(map[string]interface{})
 		user, ok := p.Context.Value(ctxUser).(*us.User)
@@ -88,26 +106,30 @@ var submitSourceMutation = &graphql.Field{
 			return nil, errors.New("인증 정보가 올바르지 않습니다.")
 		}
 
+		var compSub us.Submission
+		compSubID, _ := strconv.ParseInt(input["competitorSubmissionID"].(string), 10, 64)
+		us.DB.Where(&us.Submission{ID: compSubID}).First(&compSub)
+		if compSub.ID == 0 {
+			return nil, errors.New("매칭 상대가 올바르지 않습니다.")
+		}
+
+		// 새로운 제출 정보를 생성하고, S3에 소스코드를 업로드합니다.
 		desc := ""
 		if d, ok := input["description"].(string); ok {
 			desc = d
 		}
 		sub := us.NewSubmission(user.ID, input["gameID"].(string), input["runtime"].(string), desc)
-
 		err := s3client.UploadFromBytes(sub.GetS3Key(), strings.NewReader(input["source"].(string)))
 		if err != nil {
 			return nil, errFailed
 		}
 		us.DB.Save(&sub)
 
-		u, _ := uuid.NewRandom()
-		compSubID, _ := strconv.ParseInt(input["competitorSubmissionID"].(string), 10, 64)
-		payload := us.SubmissionPayload{
-			GameID:                 sub.GameID,
-			MatchUUID:              u.String(),
-			PlayerSubmissionID:     sub.ID,
-			CompetitorSubmissionID: compSubID,
-		}
+		// 매칭을 생성합니다.
+		match := us.NewMatch(input["gameID"].(string), user.ID, sub.ID, compSub.UserID, compSub.ID)
+		us.DB.Save(&match)
+
+		payload := us.SubmissionPayload{MatchUUID: match.UUID}
 		err = submissionTask.Produce(string(payload.ToJSON()))
 		if err != nil {
 			return nil, errFailed
@@ -115,4 +137,8 @@ var submitSourceMutation = &graphql.Field{
 
 		return sub, nil
 	},
+}
+
+func init() {
+	submissionType.AddFieldConfig("matchList", matchListQuery)
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
@@ -56,7 +57,7 @@ type signinOutput struct {
 	Registered  bool
 	AccessToken *string
 	SecretToken *string
-	ValidUntil  *int64
+	ValidUntil  *time.Time
 }
 
 var signInOutputType = graphql.NewObject(graphql.ObjectConfig{
@@ -65,7 +66,7 @@ var signInOutputType = graphql.NewObject(graphql.ObjectConfig{
 		"registered":  &graphql.Field{Type: graphql.NewNonNull(graphql.Boolean)},
 		"accessToken": &graphql.Field{Type: graphql.String},
 		"secretToken": &graphql.Field{Type: graphql.String},
-		"validUntil":  &graphql.Field{Type: graphql.Int},
+		"validUntil":  &graphql.Field{Type: graphql.DateTime},
 	},
 })
 
@@ -91,12 +92,11 @@ var signInWithGoogleQuery = &graphql.Field{
 		cred := user.NewCredential()
 		us.DB.Save(cred)
 
-		validUntil := cred.ValidUntil.Unix() * 1000
 		return &signinOutput{
 			Registered:  true,
 			AccessToken: &cred.AccessToken,
 			SecretToken: &cred.SecretToken,
-			ValidUntil:  &validUntil,
+			ValidUntil:  &cred.ValidUntil,
 		}, nil
 	},
 }
@@ -144,6 +144,18 @@ var registerUserWithGoogleMutation = &graphql.Field{
 		})
 
 		return &simpleResponse{"registered"}, nil
+	},
+}
+
+var meQuery = &graphql.Field{
+	Type:        graphql.NewNonNull(userType),
+	Description: "현재 로그인한 유저 정보를 반환합니다.",
+	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+		user, ok := p.Context.Value(ctxUser).(*us.User)
+		if !ok {
+			return nil, errors.New("인증 정보가 올바르지 않습니다.")
+		}
+		return user, nil
 	},
 }
 

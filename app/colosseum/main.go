@@ -21,36 +21,41 @@ var games = map[string]game.Game{
 	"1000": &game.Game1000{},
 }
 
-func runMatch(payload *us.SubmissionPayload) (match *us.Match) {
-	var playerSub us.Submission
-	var compSub us.Submission
-	us.DB.Where(&us.Submission{ID: payload.PlayerSubmissionID}).First(&playerSub)
-	us.DB.Where(&us.Submission{ID: payload.CompetitorSubmissionID}).First(&compSub)
-
-	g, ok := games[payload.GameID]
-	if !ok {
-		fmt.Printf("invalid game id: %s\n", payload.GameID)
+func runMatch(payload *us.SubmissionPayload) *us.Match {
+	var match us.Match
+	us.DB.Where(&us.Match{UUID: payload.MatchUUID}).First(&match)
+	if match.ID == 0 {
+		fmt.Printf("invalid match uuid: %s\n", payload.MatchUUID)
 		return nil
 	}
 
-	match = us.NewMatch(payload.GameID, playerSub.UserID, playerSub.ID, compSub.UserID, compSub.ID)
-	us.DB.Save(match)
+	match.Init()
+
+	var playerSub us.Submission
+	var compSub us.Submission
+	us.DB.Where(&us.Submission{ID: match.PlayerSubmissionID}).First(&playerSub)
+	us.DB.Where(&us.Submission{ID: match.CompetitorSubmissionID}).First(&compSub)
+
+	g, ok := games[match.GameID]
+	if !ok {
+		fmt.Printf("invalid game id: %s\n", match.GameID)
+		return nil
+	}
 
 	player, err := makeGamer(playerSub)
 	if err != nil {
 		fmt.Printf("failed to create player: %v\n", err)
 		match.Fail("플레이어가 제출한 코드의 실행에 실패했습니다.")
-		return
+		return &match
 	}
 
 	competitor, err := makeGamer(compSub)
 	if err != nil {
 		fmt.Printf("failed to create competitor: %v\n", err)
 		match.Fail("상대방이 제출한 코드의 실행에 실패했습니다.")
-		return
+		return &match
 	}
 
-	match.Init()
 	matchCtx := game.MatchContext{
 		MatchUUID:  payload.MatchUUID,
 		Player:     player,
@@ -65,8 +70,7 @@ func runMatch(payload *us.SubmissionPayload) (match *us.Match) {
 	for i := 0; i < g.GetRuleset().MaximumRound; i++ {
 		g.InitRound()
 
-		fmt.Println("starting round...")
-		result, err := g.PlayRound()
+		result, err := g.PlayRound(i + 1)
 		if err != nil {
 			fmt.Printf("error on playing round: %v\n", err)
 			if err == game.ErrPlayerBreakRule {
@@ -77,12 +81,12 @@ func runMatch(payload *us.SubmissionPayload) (match *us.Match) {
 				match.Fail("게임의 실행 중 오류가 발생했습니다.")
 			}
 
-			return
+			return &match
 		}
 
-		if result.WinnerID == player.ID {
+		if result.WinnerID == playerSub.ID {
 			playerWins++
-		} else if result.WinnerID == competitor.ID {
+		} else if result.WinnerID == compSub.ID {
 			competitorWins++
 		}
 	}
@@ -90,14 +94,14 @@ func runMatch(payload *us.SubmissionPayload) (match *us.Match) {
 	fmt.Printf("[Result] Player %d : %d Competitor\n", playerWins, competitorWins)
 	match.Finish(g.GetRuleset().MaximumRound, playerWins, competitorWins)
 
-	return
+	return &match
 }
 
 func makeGamer(sub us.Submission) (*gamer.Gamer, error) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	port := 10000 + r.Int()%55535
 
-	g := gamer.NewGamer(sub.UserID)
+	g := gamer.NewGamer(sub.ID)
 
 	var driver gamer.ServerDriver
 	switch sub.Runtime {

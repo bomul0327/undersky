@@ -40,15 +40,10 @@ type RoundResult struct {
 }
 
 // Game 은 게임 플레이에 대한 인터페이스입니다.
-//
-// 호출 순서
-//   - InitMatch()
-//   - InitRound()
-//   - PlayRound()
 type Game interface {
 	GetRuleset() *Ruleset
 
 	InitMatch(*MatchContext) error
 	InitRound() error
-	PlayRound() (*RoundResult, error)
+	PlayRound(int) (*RoundResult, error)
 }
